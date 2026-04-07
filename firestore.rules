@@ -1,0 +1,32 @@
+// firestore.rules
+// Despliega con: firebase deploy --only firestore:rules
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Perfiles públicos (lectura libre, escritura solo autenticados) ──────────
+    match /artifacts/{appId}/public/data/profiles/{userId} {
+      allow read: if true;
+      allow write: if request.auth != null
+                   && request.auth.uid == userId
+                   && !request.auth.token.firebase.sign_in_provider.matches('anonymous');
+    }
+
+    // ── Datos privados del usuario (solo él puede leer y escribir) ─────────────
+    match /artifacts/{appId}/users/{userId}/{document=**} {
+      allow read, write: if request.auth != null
+                         && request.auth.uid == userId
+                         && !request.auth.token.firebase.sign_in_provider.matches('anonymous');
+    }
+
+    // ── Solicitudes de contratación (escritura pública, lectura solo el dueño) ─
+    // Un cliente anónimo puede crear una solicitud,
+    // pero solo el profesional contratado puede leerlas.
+    match /artifacts/{appId}/users/{userId}/hires/{hireId} {
+      allow create: if true;
+      allow read:   if request.auth != null && request.auth.uid == userId;
+      allow update, delete: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}
